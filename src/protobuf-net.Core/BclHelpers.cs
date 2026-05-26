@@ -42,11 +42,12 @@ namespace ProtoBuf
 #pragma warning restore SYSLIB0050 // this is fine
         }
 
-        internal static readonly DateTime[] EpochOrigin = [
+        internal static readonly DateTime[] EpochOrigin = new[]
+        {
             new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
             new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
             new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Local)
-        ];
+        };
 
         /// <summary>
         /// Writes a TimeSpan to a protobuf stream using protobuf-net's own representation, bcl.TimeSpan

@@ -213,7 +213,7 @@ namespace ProtoBuf.Meta
             var imports = new HashSet<string>(StringComparer.Ordinal);
             MetaType AddType(Type type, bool forceOutput, bool inferPackageAndOrigin)
             {
-                if (forceOutput && type is not null) (forceGenerationTypes ??= []).Add(type);
+                if (forceOutput && type is not null) (forceGenerationTypes ??= new HashSet<Type>()).Add(type);
                 // generate just relative to the supplied type
                 int index = FindOrAddAuto(type, false, false, false, DefaultCompatibilityLevel);
                 if (index < 0) throw new ArgumentException($"The type specified is not a contract-type: '{type.NormalizeName()}'", nameof(type));
@@ -270,7 +270,7 @@ namespace ProtoBuf.Meta
                         var isInbuiltType = (ValueMember.TryGetCoreSerializer(this, DataFormat.Default, DefaultCompatibilityLevel, effectiveType, out var _, false, false, false, false) is object);
                         if (isInbuiltType)
                         {
-                            (inbuiltTypes ??= []).Add(effectiveType);
+                            (inbuiltTypes ??= new List<Type>()).Add(effectiveType);
                         }
                         else
                         {
@@ -594,7 +594,7 @@ namespace ProtoBuf.Meta
         {
             try
             {
-                var dm = new DynamicMethod("CheckCompilerAvailable", typeof(bool), [typeof(int)]);
+                var dm = new DynamicMethod("CheckCompilerAvailable", typeof(bool), new[] { typeof(int) });
                 var il = dm.GetILGenerator();
                 il.Emit(OpCodes.Ldarg_0);
                 il.Emit(OpCodes.Ldc_I4, 42);
@@ -660,7 +660,7 @@ namespace ProtoBuf.Meta
             }
         }
 
-        private readonly BasicList types = [], basicTypes = [];
+        private readonly BasicList types = new BasicList(), basicTypes = new BasicList();
 
         private sealed class BasicType
         {
@@ -996,7 +996,7 @@ namespace ProtoBuf.Meta
             => (_serviceCache[typeof(T)] ?? GetServicesSlow(typeof(T), ambient));
 
 
-        private readonly Hashtable _serviceCache = [];
+        private readonly Hashtable _serviceCache = new Hashtable();
         internal void ResetServiceCache(Type type)
         {
             if (type is not null)
@@ -1701,17 +1701,17 @@ namespace ProtoBuf.Meta
                     object[] propValues;
                     if (string.IsNullOrEmpty(options.TargetFrameworkDisplayName))
                     {
-                        props = [];
-                        propValues = [];
+                        props = Array.Empty<PropertyInfo>();
+                        propValues = Array.Empty<object>();
                     }
                     else
                     {
-                        props = [versionAttribType.GetProperty("FrameworkDisplayName")];
-                        propValues = [options.TargetFrameworkDisplayName];
+                        props = new[] { versionAttribType.GetProperty("FrameworkDisplayName") };
+                        propValues = new object[] { options.TargetFrameworkDisplayName };
                     }
                     CustomAttributeBuilder builder = new CustomAttributeBuilder(
-                        versionAttribType.GetConstructor([typeof(string)]),
-                        [options.TargetFrameworkName],
+                        versionAttribType.GetConstructor(new[] { typeof(string) }),
+                        new object[] { options.TargetFrameworkName },
                         props,
                         propValues);
                     asm.SetCustomAttribute(builder);
@@ -1729,8 +1729,8 @@ namespace ProtoBuf.Meta
 
             if (internalsVisibleToAttribType is not null)
             {
-                List<string> internalAssemblies = [];
-                List<Assembly> consideredAssemblies = [];
+                List<string> internalAssemblies = new List<string>();
+                List<Assembly> consideredAssemblies = new List<Assembly>();
                 foreach (MetaType metaType in types)
                 {
                     Assembly assembly = metaType.Type.Assembly;
@@ -1750,8 +1750,8 @@ namespace ProtoBuf.Meta
                         internalAssemblies.Add(privilegedAssemblyName);
 
                         CustomAttributeBuilder builder = new CustomAttributeBuilder(
-                            internalsVisibleToAttribType.GetConstructor([typeof(string)]),
-                            [privilegedAssemblyName]);
+                            internalsVisibleToAttribType.GetConstructor(new[] { typeof(string) }),
+                            new object[] { privilegedAssemblyName });
                         asm.SetCustomAttribute(builder);
                     }
                 }
@@ -1780,9 +1780,9 @@ namespace ProtoBuf.Meta
                         return;
 
                     var attributeType = typeof(TAttribute);
-                    Type[] ctorParameters = [typeof(string)];
+                    Type[] ctorParameters = new[] { typeof(string) };
                     var ctor = attributeType.GetConstructor(ctorParameters);
-                    var attribute = new CustomAttributeBuilder(ctor, [value]);
+                    var attribute = new CustomAttributeBuilder(ctor, new object[] { value });
                     asm.SetCustomAttribute(attribute);
                 }
             }
@@ -2293,7 +2293,7 @@ namespace ProtoBuf.Meta
 
             lock (_serviceCache)
             {
-                _externalProviders ??= [];
+                _externalProviders ??= new Hashtable();
             }
             if (!_externalProviders.ContainsKey(collection))
                 RepeatedSerializers.Add(collection, (root, current, targs) => RepeatedSerializers.Resolve(serializerType, "Create", targs), true, _externalProviders);

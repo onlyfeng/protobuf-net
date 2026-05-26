@@ -60,6 +60,6 @@ using System.Runtime.CompilerServices;
 [assembly: TypeForwardedTo(typeof(CompatibilityLevelAttribute))]
 [assembly: TypeForwardedTo(typeof(ProtoSyntax))]
 
-#if !NETSTANDARD2_0_OR_GREATER // see #1214
+#if !NETSTANDARD2_0_OR_GREATER && !UNITY_2022_3_OR_NEWER // see #1214; Unity 2022.3 doesn't support this C# 9 feature
 [module: SkipLocalsInit]
 #endif

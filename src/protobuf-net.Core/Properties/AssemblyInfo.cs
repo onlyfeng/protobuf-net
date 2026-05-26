@@ -36,14 +36,16 @@ using System.Runtime.CompilerServices;
     + "0815a096e4483605139a32a76ec2fef196507487329c12047bf6a68bca8ee9354155f4d01daf6e"
     + "ec5ff6bc")]
 
-#if !NETSTANDARD2_0_OR_GREATER // see #1214
+#if !NETSTANDARD2_0_OR_GREATER && !UNITY_2022_3_OR_NEWER // see #1214; Unity 2022.3 doesn't support this C# 9 feature
 [module: SkipLocalsInit]
 #endif
 
-#if !NET8_0_OR_GREATER && !NETSTANDARD2_0_OR_GREATER
+#if !NET8_0_OR_GREATER && !NETSTANDARD2_0_OR_GREATER && !UNITY_2022_3_OR_NEWER
 namespace System.Runtime.CompilerServices
 {
     [AttributeUsage(AttributeTargets.Module, Inherited = false)]
-    internal sealed class SkipLocalsInitAttribute : Attribute;
+    internal sealed class SkipLocalsInitAttribute : Attribute
+    {
+    }
 }
 #endif

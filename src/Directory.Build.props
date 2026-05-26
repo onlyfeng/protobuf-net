@@ -32,6 +32,9 @@
         <PackageReadmeFile>readme.md</PackageReadmeFile>
         <CheckEolTargetFramework>False</CheckEolTargetFramework>
     </PropertyGroup>
+    <PropertyGroup Condition="'$(MSBuildProjectName)' == 'protobuf-net' or '$(MSBuildProjectName)' == 'protobuf-net.Core'">
+        <LangVersion>9.0</LangVersion>
+    </PropertyGroup>
     <PropertyGroup Condition="'$(Configuration)'=='Release' or '$(Configuration)'=='VS'">
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <Optimize>true</Optimize>
