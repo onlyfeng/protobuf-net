@@ -61,7 +61,9 @@ namespace ProtoBuf.Test.Issues
                 measure.Serialize(writer);
 
                 Assert.Equal(writer.WrittenCount, measure.Length);
-                clone = this.model.Deserialize<Stream>(writer.WrittenMemory.ToArray());
+                clone = this.model.Deserialize<Stream>(writer.WrittenMemory);
+                var spanClone = this.model.Deserialize<Stream>(writer.WrittenSpan);
+                AssertRootStreamClone(spanClone, data);
 #else
                 throw new InvalidOperationException("IBufferWriter is only available in dotnet core");
 #endif
@@ -81,8 +83,7 @@ namespace ProtoBuf.Test.Issues
             this.log.WriteLine($"After serialize: {serializeHits} hits, {serializeMisses} misses");
 
 
-            Assert.NotNull(clone);
-            Assert.Equal(data, GetBuffer(clone));
+            AssertRootStreamClone(clone, data);
 
             if (trySkipWritingWhenMeasuring)
             {
@@ -140,7 +141,9 @@ namespace ProtoBuf.Test.Issues
                 measure.Serialize(writer);
 
                 Assert.Equal(writer.WrittenCount, measure.Length);
-                clone = this.model.Deserialize<StreamHolder>(writer.WrittenMemory.ToArray());
+                clone = this.model.Deserialize<StreamHolder>(writer.WrittenMemory);
+                var spanClone = this.model.Deserialize<StreamHolder>(writer.WrittenSpan);
+                AssertStreamHolderClone(spanClone, data, data2);
 #else
                 throw new InvalidOperationException("IBufferWriter is only available in dotnet core");
 #endif
@@ -158,11 +161,7 @@ namespace ProtoBuf.Test.Issues
             var serializeHits = measure.GetLengthHits(out var serializeMisses);
             this.log.WriteLine($"After serialize: {serializeHits} hits, {serializeMisses} misses");
 
-            Assert.NotNull(clone);
-            Assert.Equal(8, clone.TestInt);
-            Assert.Equal(data, GetBuffer(clone.Stream));
-            Assert.Equal(new int[] { 1, 2, 3}, clone.Numbers);
-            Assert.Equal(data2, GetBuffer(clone.Stream2));
+            AssertStreamHolderClone(clone, data, data2);
 
             if (trySkipWritingWhenMeasuring)
             {
@@ -238,6 +237,21 @@ namespace ProtoBuf.Test.Issues
             byte[] buffer = new byte[stream.Length];
             stream.Read(buffer, 0, (int)stream.Length);
             return buffer;
+        }
+
+        private static void AssertRootStreamClone(Stream clone, byte[] data)
+        {
+            Assert.NotNull(clone);
+            Assert.Equal(data, GetBuffer(clone));
+        }
+
+        private static void AssertStreamHolderClone(StreamHolder clone, byte[] data, byte[] data2)
+        {
+            Assert.NotNull(clone);
+            Assert.Equal(8, clone.TestInt);
+            Assert.Equal(data, GetBuffer(clone.Stream));
+            Assert.Equal(new int[] { 1, 2, 3 }, clone.Numbers);
+            Assert.Equal(data2, GetBuffer(clone.Stream2));
         }
 
         [ProtoContract]
