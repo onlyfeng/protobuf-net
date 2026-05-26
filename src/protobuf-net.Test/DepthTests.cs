@@ -7,6 +7,9 @@ namespace ProtoBuf.Test
 {
     public class DepthTests
     {
+        // Keep this below runtime stack limits on small-stack test runners; the
+        // tests are validating MaxDepth behavior, not native stack capacity.
+        private const int TestMaxDepth = 128, IncreasedMaxDepth = 136;
         private readonly RuntimeTypeModel _model = RuntimeTypeModel.Create();
 
         [ProtoContract]
@@ -30,17 +33,17 @@ namespace ProtoBuf.Test
 
         [Theory]
         // valid scenarios
-        [InlineData(5, 512, true)]
-        [InlineData(510, 512, true)]
-        [InlineData(511, 512, true)]
-        [InlineData(512, 512, true)]
+        [InlineData(5, TestMaxDepth, true)]
+        [InlineData(126, TestMaxDepth, true)]
+        [InlineData(127, TestMaxDepth, true)]
+        [InlineData(128, TestMaxDepth, true)]
         // invalid scenarios
         [InlineData(2, 1, false)] // for debugging
-        [InlineData(513, 512, false)]
-        [InlineData(514, 512, false)]
+        [InlineData(129, TestMaxDepth, false)]
+        [InlineData(130, TestMaxDepth, false)]
         // now with increased capacity
-        [InlineData(513, 520, true)]
-        [InlineData(514, 520, true)]
+        [InlineData(129, IncreasedMaxDepth, true)]
+        [InlineData(130, IncreasedMaxDepth, true)]
         public void TestSerialize(int depth, int maxDepth, bool success)
         {
             var oldDepth = _model.MaxDepth;
@@ -76,16 +79,16 @@ namespace ProtoBuf.Test
 
         [Theory]
         // valid scenarios
-        [InlineData(5, 512, true)]
-        [InlineData(510, 512, true)]
-        [InlineData(511, 512, true)]
-        [InlineData(512, 512, true)]
+        [InlineData(5, TestMaxDepth, true)]
+        [InlineData(126, TestMaxDepth, true)]
+        [InlineData(127, TestMaxDepth, true)]
+        [InlineData(128, TestMaxDepth, true)]
         // invalid scenarios
-        [InlineData(513, 512, false)]
-        [InlineData(514, 512, false)]
+        [InlineData(129, TestMaxDepth, false)]
+        [InlineData(130, TestMaxDepth, false)]
         // now with increased capacity
-        [InlineData(513, 520, true)]
-        [InlineData(514, 520, true)]
+        [InlineData(129, IncreasedMaxDepth, true)]
+        [InlineData(130, IncreasedMaxDepth, true)]
         public void TestDeserialize(int depth, int maxDepth, bool success)
         {
             var oldDepth = _model.MaxDepth;
