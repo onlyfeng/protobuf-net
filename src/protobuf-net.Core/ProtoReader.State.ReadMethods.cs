@@ -1,4 +1,4 @@
-﻿using ProtoBuf.Internal;
+using ProtoBuf.Internal;
 using ProtoBuf.Meta;
 using ProtoBuf.Serializers;
 using System;
@@ -394,6 +394,76 @@ namespace ProtoBuf
                         ThrowHelper.ThrowInvalidPackedOperationException(WireType, typeof(T));
                         break;
                 }
+            }
+
+            /// <summary>
+            /// Begins a packed run of scalar values, returning the absolute position at which it ends.
+            /// </summary>
+            /// <remarks>
+            /// The serializer-driven equivalent is <c>ReadPackedScalar</c>; this pair exists for the
+            /// reflective aux path, which holds a <see cref="Type"/> rather than an <c>ISerializer{T}</c>
+            /// and so has to drive the element loop itself.
+            /// </remarks>
+            internal long StartPackedScalar(WireType elementWireType, Type type)
+            {
+                var bytes = (int)ReadUInt32Varint(Read32VarintMode.Unsigned);
+                if (bytes < 0) ThrowInvalidLength(bytes);
+                AssertPlausibleLength(bytes);
+                switch (elementWireType)
+                {
+                    case WireType.Fixed32:
+                        if ((bytes % 4) != 0) ThrowHelper.ThrowInvalidOperationException("packed length should be multiple of 4");
+                        break;
+                    case WireType.Fixed64:
+                        if ((bytes % 8) != 0) ThrowHelper.ThrowInvalidOperationException("packed length should be multiple of 8");
+                        break;
+                    case WireType.Varint:
+                    case WireType.SignedVarint:
+                        break;
+                    default:
+                        ThrowHelper.ThrowInvalidPackedOperationException(elementWireType, type);
+                        break;
+                }
+                return GetPosition() + bytes;
+            }
+
+            /// <summary>
+            /// Advances to the next element of a packed run started by <see cref="StartPackedScalar"/>,
+            /// re-arming the wire type; returns <c>false</c> once the run is exhausted.
+            /// </summary>
+            internal bool ContinuePackedScalar(long end, WireType elementWireType)
+            {
+                var position = GetPosition();
+                if (position >= end)
+                {
+                    if (position != end) ThrowHelper.ThrowInvalidOperationException("over-read packed data");
+                    return false;
+                }
+                _reader.WireType = elementWireType;
+                return true;
+            }
+
+            /// <summary>
+            /// Reads a packed run of scalar values into <paramref name="values"/>, reporting whether
+            /// the current field was in fact a packed run of a packable scalar.
+            /// </summary>
+            /// <remarks>
+            /// The repeated serializers reach packed data through <see cref="FillBuffer"/>, which owns
+            /// the whole field sequence; the extension APIs cannot, since they see one field at a time
+            /// and have no list to read into. This is the narrow entry point for that case.
+            /// </remarks>
+            internal bool TryReadPackedScalar<T>(ISerializer<T> serializer, ICollection<T> values)
+            {
+                // the wire type is never "string" for a type that *can* be packed, so a length-delimited
+                // payload here is packed data - the same inference PrepareToReadRepeated makes
+                if (!TypeHelper<T>.CanBePacked || WireType != WireType.String) return false;
+
+                SerializerFeatures features = default;
+                features.InheritFrom(serializer.Features);
+                if (features.GetCategory() != SerializerFeatures.CategoryScalar) return false;
+
+                ReadPackedScalar<ISerializer<T>, ICollection<T>, T>(ref values, features.GetWireType(), serializer);
+                return true;
             }
 
             internal ReadBuffer<T> FillBuffer<TSerializer, T>(SerializerFeatures features, in TSerializer serializer, T initialValue)
@@ -1126,22 +1196,22 @@ namespace ProtoBuf
             /// Reads a sub-item from the input reader
             /// </summary>
             [MethodImpl(HotPath)]
-            public T ReadMessage<[DynamicallyAccessedMembers(DynamicAccess.ContractType)] T>(T value = default)
+            public T ReadMessage<T>(T value = default)
                 => ReadMessage<T>(default, value, null);
 
             /// <summary>
             /// Reads a sub-item from the input reader
             /// </summary>
             [MethodImpl(ProtoReader.HotPath)]
-            public T ReadMessage<[DynamicallyAccessedMembers(DynamicAccess.ContractType)] T>(SerializerFeatures features, T value = default, ISerializer<T> serializer = null)
-                => ReadMessage<ISerializer<T>, T>(features, value, serializer ?? TypeModel.GetSerializer<T>(Model));
+            public T ReadMessage<T>(SerializerFeatures features, T value = default, ISerializer<T> serializer = null)
+                => ReadMessage<ISerializer<T>, T>(features, value, serializer ?? TypeModel.ResolveSerializer<T>(Model));
 
 #pragma warning disable IDE0060 // unused (yet!) features arg
             /// <summary>
             /// Reads a sub-item from the input reader
             /// </summary>
             [MethodImpl(MethodImplOptions.NoInlining)]
-            internal T ReadMessage<TSerializer, [DynamicallyAccessedMembers(DynamicAccess.ContractType)] T>(SerializerFeatures features, T value, in TSerializer serializer)
+            internal T ReadMessage<TSerializer, T>(SerializerFeatures features, T value, in TSerializer serializer)
                 where TSerializer : ISerializer<T>
 #pragma warning restore IDE0060
             {
@@ -1162,16 +1232,16 @@ namespace ProtoBuf
             /// Reads a value or sub-item from the input reader
             /// </summary>
             [MethodImpl(HotPath)]
-            public T ReadAny<[DynamicallyAccessedMembers(DynamicAccess.ContractType)] T>(T value = default)
+            public T ReadAny<T>(T value = default)
                 => ReadAny<T>(default, value, null);
 
             /// <summary>
             /// Reads a value or sub-item from the input reader
             /// </summary>
             [MethodImpl(HotPath)]
-            public T ReadAny<[DynamicallyAccessedMembers(DynamicAccess.ContractType)] T>(SerializerFeatures features, T value = default, ISerializer<T> serializer = null)
+            public T ReadAny<T>(SerializerFeatures features, T value = default, ISerializer<T> serializer = null)
             {
-                serializer ??= TypeModel.GetSerializer<T>(Model);
+                serializer ??= TypeModel.ResolveSerializer<T>(Model);
                 var serializerFeatures = serializer.Features;
                 features.InheritFrom(serializerFeatures);
 
@@ -1199,9 +1269,9 @@ namespace ProtoBuf
             /// <summary>
             /// Read a value or sub-item with an additional level of message wrapping, that can be used to express <c>null</c> values of arbitrary types (as field 1)
             /// </summary>
-            public T ReadWrapped<[DynamicallyAccessedMembers(DynamicAccess.ContractType)] T>(SerializerFeatures features, T value, ISerializer<T> serializer = null)
+            public T ReadWrapped<T>(SerializerFeatures features, T value, ISerializer<T> serializer = null)
             {
-                serializer ??= TypeModel.GetSerializer<T>(Model);
+                serializer ??= TypeModel.ResolveSerializer<T>(Model);
                 features.InheritFrom(serializer.Features);
 
                 ProtoWriter.State.AssertWrappedAndGetWireType(ref features, out var fieldPresence);
@@ -1377,7 +1447,7 @@ namespace ProtoBuf
             }
 
             [MethodImpl(HotPath)]
-            internal T DeserializeRootImpl<T>(T value = default)
+            internal T DeserializeRootImpl<[DynamicallyAccessedMembers(DynamicAccess.ContractType)] T>(T value = default)
             {
                 var serializer = TypeModel.TryGetSerializer<T>(Model);
                 if (serializer is null)
